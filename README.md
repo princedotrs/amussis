@@ -7,7 +7,9 @@ Each model's version of the program lives in its own folder. Each folder is a st
 | Folder | Model | Rust lines |
 |---|---|---|
 | [`claude-opus-5.5/`](claude-opus-5.5) | Claude Opus 5.5 (Claude Code) | 196 (`lib.rs` 131 + test 65) |
-| TODO | TODO | TODO |
+| [`claude-sonet-5.5/`](claude-sonet-5.5) | Claude Sonnet 5.5 (Claude Code) | 231 (`lib.rs` 139 + test 92) |
+
+The Opus version is the main submission, since it stays under the 200-line limit. The Sonnet version is kept for comparison.
 
 ## Build and run
 
@@ -22,7 +24,7 @@ cargo test                 # runs the program inside LiteSVM (a local Solana VM)
 
 Tested with rustc 1.98, anchor-lang 1.2.2, Solana CLI / cargo-build-sbf 3.1.10, litesvm 0.18.2.
 
-## Instructions
+## Instructions (Opus version)
 
 | Instruction | What it does |
 |---|---|
@@ -39,19 +41,30 @@ Tested with rustc 1.98, anchor-lang 1.2.2, Solana CLI / cargo-build-sbf 3.1.10, 
 
 ## How I described it to the agents (main prompts)
 
-<!-- TODO: paste your real prompts here. Prompt 1 is the one used with Claude Code. -->
-
 1. *"I want to build a simple vault program where users can deposit SOL with constraints like min time and they can only withdraw after that time is passed. So we are gonna have a simple vault state with amount, locked_duration and bumps. We are gonna have instructions like init, deposit, withdraw and close. Every user can init their own vault, so the seed would contain a simple vault string and the user's pubkey, and we check the owner in the other instructions."*
-2. TODO
+2. Sonnet got the same request plus the assignment's limits, run in a fresh session inside its own folder:
+   *"...(same text as above)... Constraints: create the project in the current directory only, and do not read or copy anything from sibling folders. At most 200 lines of Rust in total, tests included. It must build with `cargo build` and be runnable: add a Rust test (e.g. LiteSVM) that runs init, deposit, a withdraw that fails while still locked, a withdraw that succeeds after the lock time, and close. Use a recent Anchor version. Actually build and run the tests and fix anything that fails."*
 
 ## Models I tried and how they differed
-
-<!-- TODO: fill in from your own runs with the other model(s). -->
 
 | Model | Tool | What happened |
 |---|---|---|
 | Claude Opus 5.5 | Claude Code | Wrote the program and a LiteSVM test. It added a `last_deposit_ts` field, because a lock duration alone doesn't say when the lock started. It pre-funds the vault with rent so small deposits and partial withdrawals don't fail the system program's rent check. It also requires the lock to have expired before `close`, since otherwise close would be a way around the lock. |
-| TODO | TODO | TODO |
+| Claude Sonnet 5.5 | Claude Code | Used a single PDA (`["vault", user]`) that holds both the state and the SOL. That's closer to my original description. Because the program owns that account, it moves SOL out directly with `sub_lamports`/`add_lamports`, so it needs no signed CPI and no rent top-up. `withdraw` takes no amount and always empties the vault. It stores `unlock_time = now + locked_duration` instead of the deposit time, and allows a duration of 0. `close` only works once the vault is empty, which also stops close from skipping the lock. Its test is more thorough than the Opus one: it checks that re-init fails, asserts exact balances, and has a second wallet attack the *real* vault address. It went over the limit at 231 lines, mostly because of rustfmt-style multi-line formatting. |
+
+**Differences at a glance**
+
+| | Opus 5.5 | Sonnet 5.5 |
+|---|---|---|
+| Accounts | state PDA + system-owned vault PDA | one program-owned PDA |
+| Moving SOL out | System Program CPI signed with PDA seeds | `sub_lamports` / `add_lamports` |
+| Withdraw | any amount ≤ balance | everything at once |
+| Lock stored as | `last_deposit_ts` (+ duration) | `unlock_time` |
+| Close | allowed if empty or unlocked | only if empty |
+| Test coverage | lock, over-withdraw, other wallet, close | also re-init, exact balances, attack on the real vault, double withdraw |
+| Rust lines | 196 ✅ | 231 ❌ |
+
+Note: the Sonnet run had the Opus folder in the same repo. Its scaffolding matches the Opus version: the same dependency versions and test helpers, and it even started with the same program ID, which I later replaced with its own. So it was probably influenced by the Opus code. The design choices in the table above are its own.
 
 ## How the program works (in my own words)
 
