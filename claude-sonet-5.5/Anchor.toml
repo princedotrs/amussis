@@ -1,0 +1,6 @@
+[programs.localnet]
+vault = "2ihBJmUBY5WyaunnKMTdMhbZRg69Yn1sDeVNVQRfx5VC"
+
+[provider]
+cluster = "localnet"
+wallet = "~/.config/solana/id.json"
