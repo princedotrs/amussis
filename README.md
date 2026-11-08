@@ -2,11 +2,17 @@
 
 A small Solana program (Anchor, Rust) where each user gets a personal vault. You can deposit SOL any time, but you can only withdraw after a minimum lock time has passed since your last deposit.
 
-Rust size: `programs/vault/src/lib.rs` (131 lines) + `programs/vault/tests/vault.rs` (65 lines) = **196 lines**.
+Each model's version of the program lives in its own folder. Each folder is a standalone Cargo project:
+
+| Folder | Model | Rust lines |
+|---|---|---|
+| [`claude-opus-5.5/`](claude-opus-5.5) | Claude Opus 5.5 (Claude Code) | 196 (`lib.rs` 131 + test 65) |
+| TODO | TODO | TODO |
 
 ## Build and run
 
 ```bash
+cd claude-opus-5.5         # or another model's folder
 cargo build                # builds the program crate on the host
 cargo build-sbf            # builds the on-chain binary -> target/deploy/vault.so (Solana CLI 2.x/3.x)
 cargo test                 # runs the program inside LiteSVM (a local Solana VM)
